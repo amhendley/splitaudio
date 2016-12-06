@@ -102,27 +102,27 @@ def main(argv):
         data = f.readlines()
 
     for line in data:
-        # TODO: Check if line is empty
-        # TODO: Use CSV parser
-        # TODO: Capture time with milliseconds
+        if line.strip().len() > 0:
+            # TODO: Use CSV parser
+            # TODO: Capture time with milliseconds
 
-        parts = line.split(",")
-        parts[1] = parts[1].rstrip('\n')
-        sep_count = parts[1].count(':')
+            parts = line.split(",")
+            parts[1] = parts[1].rstrip('\n')
+            sep_count = parts[1].count(':')
 
-        if sep_count == 1:
-            dt = datetime.strptime(parts[1], '%M:%S')
-        elif sep_count == 2:
-            dt = datetime.strptime(parts[1], '%H:%M:%S')
+            if sep_count == 1:
+                dt = datetime.strptime(parts[1], '%M:%S')
+            elif sep_count == 2:
+                dt = datetime.strptime(parts[1], '%H:%M:%S')
 
-        if start_time != '':
-            end_time = dt
+            if start_time != '':
+                end_time = dt
 
-            split_audio(track_title, start_time, end_time, inputFile, simulate)
+                split_audio(track_title, start_time, end_time, inputFile, simulate)
 
-        track_title = parts[0]
+            track_title = parts[0]
 
-        start_time = dt
+            start_time = dt
 
     if start_time != '':
         end_time = file_duration
