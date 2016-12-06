@@ -38,7 +38,7 @@ def get_audiofile_duration(filename):
         return datetime.strptime(time_length, '%H:%M:%S')
 
 
-def split_audio(track_title, start_time, end_time, audio_file):
+def split_audio(track_title, start_time, end_time, audio_file, simulate):
     print('Title:', track_title)
     print('Start:', start_time)
     print('End:', end_time)
@@ -53,35 +53,42 @@ def split_audio(track_title, start_time, end_time, audio_file):
     file_ext = file_parts[len(file_parts)-1]
     output_file = "{0}.{1}".format(track_title, file_ext)
 
-    cmd = ['ffmpeg', '-ss', start_time_string, '-i', audio_file, '-c', 'copy', '-t', duration_string, output_file]
-    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if simulate:
+        print("Simulation: Extracting audio part from time position '{0}' for the duration of '{1}' into file '{2}'"
+              .format(start_time_string, duration_string, audio_file))
+    else:
+        cmd = ['ffmpeg', '-ss', start_time_string, '-i', audio_file, '-c', 'copy', '-t', duration_string, output_file]
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-    out, err = p.communicate()
-    # print("==========output==========")
-    # print(out.decode())
-    if err:
-        print("========= error ========")
-        print(err.decode())
-        exit
+        out, err = p.communicate()
+        # print("==========output==========")
+        # print(out.decode())
+        if err:
+            print("========= error ========")
+            print(err.decode())
+            exit
 
 
 def main(argv):
     inputFile = ''
     csvFile = ''
+    simulate = False
 
     try:
-        opts, args = getopt.getopt(argv, "hi:c:", ["input=", "csv="])
+        opts, args = getopt.getopt(argv, "hi:c:", ["input=", "csv=", "simulate"])
     except getopt.GetoptError:
-        print('usage: splitaudio.py -i <inputfile> -c <csvfile>')
+        print('usage: splitaudio.py -i <inputfile> -c <csvfile> [-s]')
         sys.exit(2)
     for opt, arg in opts:
         if opt == '-h':
-            print('splitaudio.py -i <inputfile> -c <csvfile>')
+            print('splitaudio.py -i <inputfile> -c <csvfile> [-s]')
             sys.exit()
         elif opt in ("-i", "--input"):
             inputFile = arg
         elif opt in ("-c", "--csv"):
             csvFile = arg
+        elif opt in ("-s", "--simulate"):
+            simulate = True
 
     print('Input file is "', inputFile)
     print('CSV file is "', csvFile)
@@ -95,6 +102,10 @@ def main(argv):
         data = f.readlines()
 
     for line in data:
+        # TODO: Check if line is empty
+        # TODO: Use CSV parser
+        # TODO: Capture time with milliseconds
+
         parts = line.split(",")
         parts[1] = parts[1].rstrip('\n')
         sep_count = parts[1].count(':')
@@ -106,7 +117,8 @@ def main(argv):
 
         if start_time != '':
             end_time = dt
-            split_audio(track_title, start_time, end_time, inputFile)
+
+            split_audio(track_title, start_time, end_time, inputFile, simulate)
 
         track_title = parts[0]
 
@@ -115,7 +127,7 @@ def main(argv):
     if start_time != '':
         end_time = file_duration
 
-        split_audio(track_title, start_time, end_time, inputFile)
+        split_audio(track_title, start_time, end_time, inputFile, simulate)
 
 
 if __name__ == "__main__":
