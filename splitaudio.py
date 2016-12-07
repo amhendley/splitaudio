@@ -102,13 +102,20 @@ def main(argv):
         for row in reader:
             track_position = row['position']
 
-            # TODO: Capture time with milliseconds
-
             sep_count = track_position.count(':')
+            has_millseconds = (track_position.count('.') > 0)
             if sep_count == 1:
-                new_start_time = datetime.strptime(track_position, '%M:%S')
+                if has_millseconds:
+                    time_format = '%M:%S.%f'
+                else:
+                    time_format = '%M:%S'
             elif sep_count == 2:
-                new_start_time = datetime.strptime(track_position, '%H:%M:%S')
+                if has_millseconds:
+                    time_format = '%H:%M:%S.%f'
+                else:
+                    time_format = '%H:%M:%S'
+
+            new_start_time = datetime.strptime(track_position, time_format)
 
             if not first_row:
                 if simulate:
