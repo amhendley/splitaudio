@@ -11,8 +11,9 @@ And seperated by a comma (,).
 
 For example:
 
+	title,position
 	01. Song 1,0:00
-	02. Song 2,4:28
+	"02. Song 2, plus more",4:28
 	03. Song 3,7:56
 	...
 
@@ -22,8 +23,12 @@ will work out the duration of each track. The splitting is then done using **ffm
 
 ## Usage
 
-	python3 splitaudio.py -i <inputfile> -c <csvfile>
+	python3 splitaudio.py -i <inputfile> -c <csvfile> [-s]
 
+### Arguments
+    -i  --input     Audio file to be split into it's various tracks
+    -c  --csv       CSV delimited text file containing the track names and time position in the source audio file
+    -s  --simulate  Optional. Simulates the process without actually running anything.
 
 ## Dependencies
 ### Python
