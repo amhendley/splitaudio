@@ -7,24 +7,6 @@ from datetime import datetime
 import csv
 
 
-def open_csv(filename):
-    with open(filename) as csvFile:
-        reader = csv.DictReader(csvFile)
-
-        # Read the column names from the first line of the file
-        fields = reader.next()
-
-        for row in reader:
-            # Zip together the field names and values
-            items = zip(fields, row)
-            item = {}
-            # Add the value to our dictionary
-            for (name, value) in items:
-                item[name] = value.strip()
-
-    return items
-
-
 def get_audiofile_duration(filename):
     cmd = ['ffprobe', '-show_format', '-pretty', '-loglevel', 'quiet', filename]
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
