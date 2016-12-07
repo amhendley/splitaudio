@@ -4,10 +4,7 @@ import sys
 import getopt
 import subprocess
 from datetime import datetime
-from datetime import  timedelta
-import formatters
 import csv
-import time
 
 
 def open_csv(filename):
@@ -28,21 +25,11 @@ def open_csv(filename):
     return items
 
 
-def strfdelta(tdelta, fmt):
-    d = {"D": tdelta.days}
-    d["H"], rem = divmod(tdelta.seconds, 3600)
-    d["M"], d["S"] = divmod(rem, 60)
-    t = DeltaTemplate(fmt)
-    return t.substitute(**d)
-
-
 def get_audiofile_duration(filename):
     cmd = ['ffprobe', '-show_format', '-pretty', '-loglevel', 'quiet', filename]
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
     out, err = p.communicate()
-    # print("==========output==========")
-    # print(out)
     if err:
         print("========= error ========")
         print(err)
@@ -67,14 +54,8 @@ def split_audio(track_title, start_time, end_time, audio_file, simulate):
     duration = (end_time - start_time)
     print('Duration:', str(duration))
 
-    # start_time_string = "{0}:{1}:{2}".format(start_time.hour, start_time.minute, start_time.second)
     start_time_string = datetime.strftime(start_time, '%H:%M:%S')
     duration_string = str(duration)
-
-    # days, seconds = duration.days, duration.seconds
-    # hours = days * 24 + seconds // 3600
-    # minutes = (seconds % 3600) // 60
-    # seconds = seconds % 60
 
     file_parts = audio_file.split(sep='.')
     file_ext = file_parts[len(file_parts)-1]
@@ -97,8 +78,6 @@ def split_audio(track_title, start_time, end_time, audio_file, simulate):
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         out, err = p.communicate()
-        # print("==========output==========")
-        # print(out.decode())
         if err:
             print("========= error ========")
             print(err.decode())
@@ -133,10 +112,6 @@ def main(argv):
     print('File duration:', file_duration)
 
     start_time = ''
-    end_time = ''
-
-    # with open(csv_file) as f:
-    #    data = f.readlines()
 
     with open(csv_file) as file:
         reader = csv.DictReader(file)
@@ -145,12 +120,9 @@ def main(argv):
         for row in reader:
             track_position = row['position']
 
-            # if len(track_title.strip()) > 0:
-            # parts = row.split(",")
-            # parts[1] = parts[1].rstrip('\n')
-            sep_count = track_position.count(':')
-
             # TODO: Capture time with milliseconds
+
+            sep_count = track_position.count(':')
             if sep_count == 1:
                 new_start_time = datetime.strptime(track_position, '%M:%S')
             elif sep_count == 2:
