@@ -2,6 +2,8 @@ pipeline {
     agent any
 
     stages {
+        stage("Checkout") {
+        }
         stage('Clean') {
             steps {
                 echo 'cleaning...'
