@@ -3,6 +3,9 @@ pipeline {
 
     stages {
         stage("Checkout") {
+            steps {
+                echo 'checkout...'
+            }
         }
         stage('Clean') {
             steps {
