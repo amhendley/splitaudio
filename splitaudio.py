@@ -30,11 +30,11 @@ def get_audiofile_duration(filename):
 
 def split_audio(track_title, start_time, end_time, audio_file, simulate):
     print('Title:', track_title)
-    print('Start:', datetime.strftime(start_time, '%H:%M:%S'))
-    print('End:', datetime.strftime(end_time, '%H:%M:%S'))
+    print('  Start:', datetime.strftime(start_time, '%H:%M:%S'))
+    print('  End:', datetime.strftime(end_time, '%H:%M:%S'))
 
     duration = (end_time - start_time)
-    print('Duration:', str(duration))
+    print('  Duration:', str(duration))
 
     start_time_string = datetime.strftime(start_time, '%H:%M:%S')
     duration_string = str(duration)
@@ -43,7 +43,7 @@ def split_audio(track_title, start_time, end_time, audio_file, simulate):
     file_ext = file_parts[len(file_parts)-1]
     output_file = "{0}.{1}".format(track_title, file_ext)
 
-    print("Output: {0}".format(output_file))
+    print("  Output: {0}".format(output_file))
 
     if simulate:
         print("Simulation: Extracting audio part from time position '{0}' for the duration of '{1}' into file '{2}.{3}'"
