@@ -1,129 +1,207 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 
 import sys
-import getopt
-import subprocess
-from datetime import datetime
+import pathlib
+import argparse
+from datetime import datetime, timedelta
 import csv
+from pydub import AudioSegment
 
 
-def get_audiofile_duration(filename):
-    cmd = ['ffprobe', '-show_format', '-pretty', '-loglevel', 'quiet', filename]
-    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+def split_audio(input_data: dict = [],
+                audio_file: AudioSegment = None,
+                output_path: str = None,
+                simulate: bool = False):
+    track_title = input_data['title']
+    track_pos = input_data['track']
+    track_album = input_data['album'] if 'album' in input_data else None
+    track_year = input_data['year'] if 'year' in input_data else None
+    track_start_time = input_data['start_time']
+    track_end_time = input_data['end_time']
+    track_extension = input_data['extension']
 
-    out, err = p.communicate()
-    if err:
-        print("========= error ========")
-        print(err)
-
-    lines = out.decode().splitlines()
-    for line in lines:
-        parts = line.split('=')
-        if parts[0] == 'duration':
-            time_length = parts[1]
-
-    if time_length.count('.') == 1:
-        return datetime.strptime(time_length, '%H:%M:%S.%f')
-    else:
-        return datetime.strptime(time_length, '%H:%M:%S')
-
-
-def split_audio(track_title, start_time, end_time, audio_file, simulate):
     print('Title:', track_title)
-    print('  Start:', datetime.strftime(start_time, '%H:%M:%S'))
-    print('  End:', datetime.strftime(end_time, '%H:%M:%S'))
+    print('  Start:', datetime.strftime(track_start_time, '%H:%M:%S'))
+    print('  End:', datetime.strftime(track_end_time, '%H:%M:%S'))
 
-    duration = (end_time - start_time)
+    duration = (track_end_time - track_start_time)
     print('  Duration:', str(duration))
 
-    start_time_string = datetime.strftime(start_time, '%H:%M:%S')
-    duration_string = str(duration)
-
-    file_parts = audio_file.split(sep='.')
-    file_ext = file_parts[len(file_parts)-1]
-    output_file = "{0}.{1}".format(track_title, file_ext)
-
+    output_file = "{0}/{1:02d}. {2}.{3}".format(output_path,
+                                           track_pos,
+                                           track_title,
+                                           track_extension)
     print("  Output: {0}".format(output_file))
 
     if simulate:
-        print("Simulation: Extracting audio part from time position '{0}' for the duration of '{1}' into file '{2}.{3}'"
-              .format(start_time_string, duration_string, track_title, file_ext))
+        print("Simulation: Extracting audio part from time position '{0}' "
+              "for the duration of '{1}' into file '{2}.{3}'"
+              .format(datetime.strftime(track_start_time, '%H:%M:%S'),
+                      str(duration),
+                      track_title,
+                      track_extension))
     else:
-        cmd = ['ffmpeg',
-               '-y',
-               '-v', 'warning',
-               '-ss', start_time_string,
-               '-i', audio_file,
-               '-c', 'copy',
-               '-t', duration_string,
-               output_file]
-        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        start_delta = timedelta(hours=track_start_time.hour,
+                                minutes=track_start_time.minute,
+                                seconds=track_start_time.second,
+                                microseconds=track_start_time.microsecond)
+        end_delta = timedelta(hours=track_end_time.hour,
+                              minutes=track_end_time.minute,
+                              seconds=track_end_time.second,
+                              microseconds=track_end_time.microsecond)
 
-        out, err = p.communicate()
-        if err:
-            print("========= error ========")
-            print(err.decode())
-            exit
+        start_ms = (start_delta.seconds * 1000)
+        end_ms = (end_delta.seconds * 1000)
+
+        if start_ms > 0:
+            audio_track = audio_file[int(start_ms):]
+        else:
+            audio_track = audio_file
+
+        audio_track_final = audio_track[:(end_ms-start_ms)]
+
+        track_tags = {
+            'title': track_title,
+            'track': track_pos,
+        }
+        if track_album:
+            track_tags['album'] = track_album
+        if track_year:
+            track_tags['year'] = track_year
+
+        audio_track_final.export(out_f=output_file,
+                                 format=track_extension,
+                                 tags=track_tags)
 
 
 def main(argv):
     input_file = ''
     csv_file = ''
+    output_path = None
+    album_name = None
+    album_year = None
     simulate = False
+    time_formats = {1: {True: '%M:%S.%f', False: '%M:%S'},
+                    2: {True: '%H:%M:%S.%f', False: '%H:%M:%S'}}
 
     try:
-        opts, args = getopt.getopt(argv, "hi:c:s", ["input=", "csv=", "simulate"])
-    except getopt.GetoptError:
-        print('usage: splitaudio.py -i <input_file> -c <csv_file> [-s]')
+        parser = argparse.ArgumentParser(prog='splitaudio')
+        parser.add_argument('--input',
+                            type=pathlib.Path,
+                            help='Audio file INPUT',
+                            metavar='INPUT')
+        parser.add_argument('-i',
+                            type=pathlib.Path,
+                            dest='input',
+                            help='Audio file INPUT',
+                            metavar='INPUT')
+        parser.add_argument('--csv',
+                            type=pathlib.Path,
+                            help='Delimited text file of track splits',
+                            metavar='CSV')
+        parser.add_argument('-c',
+                            type=pathlib.Path,
+                            dest='csv',
+                            help='Delimited text file of track splits',
+                            metavar='CSV')
+        parser.add_argument('--output',
+                            type=pathlib.Path,
+                            help='Output path where split tracks are to be'
+                                 ' saved',
+                            metavar='OUTPUT')
+        parser.add_argument('-o',
+                            type=pathlib.Path,
+                            dest='output')
+        parser.add_argument('--album',
+                            help='Album title',
+                            metavar='ALBUM')
+        parser.add_argument('-a', dest='album')
+        parser.add_argument('--year', type=int,
+                            help='Album year of release',
+                            metavar='YEAR')
+        parser.add_argument('-y',
+                            dest='year')
+        parser.add_argument('--dryrun',
+                            action='store_true',
+                            help='Perform a dry run without processing')
+        parser.add_argument('--simulate',
+                            action='store_true',
+                            dest='dryrun')
+
+        args = parser.parse_args(argv)
+    except Exception:
+        parser.usage()
         sys.exit(2)
-    for opt, arg in opts:
-        if opt == '-h':
-            print('splitaudio.py -i <input_file> -c <csv_file> [-s]')
-            sys.exit()
-        elif opt in ("-i", "--input"):
-            input_file = arg
-        elif opt in ("-c", "--csv"):
-            csv_file = arg
-        elif opt in ("-s", "--simulate"):
-            simulate = True
 
-    print('Input file is "', input_file)
-    print('CSV file is "', csv_file)
+    input_file = args.input
+    csv_file = args.csv
+    album_name = args.album
+    album_year = args.year
+    output_path = args.output
+    simulate = args.dryrun
 
-    file_duration = get_audiofile_duration(input_file)
-    print('File duration:', file_duration)
+
+    if str(input_file).startswith('~'):
+        input_file = pathlib.Path('{0}{1}'.format(input_file.home(),
+                                                  str(input_file)[1:]))
+
+    if str(csv_file).startswith('~'):
+        csv_file = pathlib.Path('{0}{1}'.format(csv_file.home(),
+                                                str(csv_file)[1:]))
+
+    if not output_path:
+        output_path = input_file.parent
+    else:
+        if str(output_path).startswith('~'):
+            output_path = pathlib.Path('{0}{1}'.format(output_path.home(),
+                                                       str(output_path)[1:]))
+
+    print()
+    print('- Input:   ', input_file)
+    print('- CSV:     ', csv_file)
+    print('- Output:  ', output_path)
+
+    audio_type = input_file.suffix[1:].lower()
+    audio_file = AudioSegment.from_file(str(input_file), audio_type)
+
+    seconds = audio_file.duration_seconds
+    file_duration = timedelta(seconds=seconds)
+    print('- Duration:', file_duration)
+    print()
 
     start_time = ''
 
     with open(csv_file) as file:
         reader = csv.DictReader(file)
         first_row = True
+        track_count = 0
 
         for row in reader:
             track_position = row['position']
 
             sep_count = track_position.count(':')
-            has_millseconds = (track_position.count('.') > 0)
-            if sep_count == 1:
-                if has_millseconds:
-                    time_format = '%M:%S.%f'
-                else:
-                    time_format = '%M:%S'
-            elif sep_count == 2:
-                if has_millseconds:
-                    time_format = '%H:%M:%S.%f'
-                else:
-                    time_format = '%H:%M:%S'
-
+            has_milliseconds = (track_position.count('.') > 0)
+            time_format = time_formats[sep_count][has_milliseconds]
             new_start_time = datetime.strptime(track_position, time_format)
 
             if not first_row:
+                track_count += 1
                 if simulate:
-                    print("Simulation: Processing row ({0}) with track position ({1})".format(track_title,
-                                                                                              track_position))
+                    print("Simulation: Processing row ({0}) "
+                          "with track position ({1})".format(track_title,
+                                                             track_position))
 
                 end_time = new_start_time
-                split_audio(track_title, start_time, end_time, input_file, simulate)
+                track_data = {
+                    'title': track_title,
+                    'extension': audio_type,
+                    'track': track_count,
+                    'start_time': start_time,
+                    'end_time': end_time,
+                    'album': row['album'] if 'album' in row else album_name,
+                    'year': row['year'] if 'year' in row else album_year
+                }
+                split_audio(track_data, audio_file, output_path, simulate)
 
             track_title = row['title']
             start_time = new_start_time
@@ -131,9 +209,22 @@ def main(argv):
 
     if not first_row:
         if simulate:
-            print("Simulation: Processing row ({0}) with track position ({1})".format(track_title, track_position))
-        end_time = file_duration
-        split_audio(track_title, start_time, end_time, input_file, simulate)
+            print("Simulation: Processing row ({0}) "
+                  "with track position ({1})".format(track_title,
+                                                     track_position))
+        end_time = datetime.strptime(str(file_duration), '%H:%M:%S.%f')
+
+        track_data = {
+            'title': track_title,
+            'extension': audio_type,
+            'track': (track_count+1),
+            'start_time': start_time,
+            'end_time': end_time,
+            'album': row['album'] if 'album' in row else album_name,
+            'year': row['year'] if 'year' in row else album_year
+        }
+
+        split_audio(track_data, audio_file, output_path, simulate)
 
 
 if __name__ == "__main__":
