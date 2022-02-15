@@ -11,7 +11,7 @@ from pydub import AudioSegment
 def split_audio(input_data: dict = [],
                 audio_file: AudioSegment = None,
                 output_path: str = None,
-                simulate: bool = False):
+                dry_run: bool = False):
     track_title = input_data['title']
     track_pos = input_data['track']
     track_album = input_data['album'] if 'album' in input_data else None
@@ -33,7 +33,7 @@ def split_audio(input_data: dict = [],
                                            track_extension)
     print("  Output: {0}".format(output_file))
 
-    if simulate:
+    if dry_run:
         print("Simulation: Extracting audio part from time position '{0}' "
               "for the duration of '{1}' into file '{2}.{3}'"
               .format(datetime.strftime(track_start_time, '%H:%M:%S'),
@@ -80,53 +80,34 @@ def main(argv):
     output_path = None
     album_name = None
     album_year = None
-    simulate = False
+    dry_run = False
     time_formats = {1: {True: '%M:%S.%f', False: '%M:%S'},
                     2: {True: '%H:%M:%S.%f', False: '%H:%M:%S'}}
 
     try:
         parser = argparse.ArgumentParser(prog='splitaudio')
-        parser.add_argument('--input',
+        parser.add_argument('-i', '--input',
                             type=pathlib.Path,
                             help='Audio file INPUT',
                             metavar='INPUT')
-        parser.add_argument('-i',
-                            type=pathlib.Path,
-                            dest='input',
-                            help='Audio file INPUT',
-                            metavar='INPUT')
-        parser.add_argument('--csv',
+        parser.add_argument('-c', '--csv',
                             type=pathlib.Path,
                             help='Delimited text file of track splits',
                             metavar='CSV')
-        parser.add_argument('-c',
-                            type=pathlib.Path,
-                            dest='csv',
-                            help='Delimited text file of track splits',
-                            metavar='CSV')
-        parser.add_argument('--output',
+        parser.add_argument('-o', '--output',
                             type=pathlib.Path,
                             help='Output path where split tracks are to be'
                                  ' saved',
                             metavar='OUTPUT')
-        parser.add_argument('-o',
-                            type=pathlib.Path,
-                            dest='output')
-        parser.add_argument('--album',
+        parser.add_argument('-a', '--album',
                             help='Album title',
                             metavar='ALBUM')
-        parser.add_argument('-a', dest='album')
-        parser.add_argument('--year', type=int,
+        parser.add_argument('-y', '--year', type=int,
                             help='Album year of release',
                             metavar='YEAR')
-        parser.add_argument('-y',
-                            dest='year')
-        parser.add_argument('--dryrun',
+        parser.add_argument('-d', '--dryrun',
                             action='store_true',
                             help='Perform a dry run without processing')
-        parser.add_argument('--simulate',
-                            action='store_true',
-                            dest='dryrun')
 
         args = parser.parse_args(argv)
     except Exception:
@@ -138,7 +119,7 @@ def main(argv):
     album_name = args.album
     album_year = args.year
     output_path = args.output
-    simulate = args.dryrun
+    dry_run = args.dryrun
 
 
     if str(input_file).startswith('~'):
@@ -186,7 +167,7 @@ def main(argv):
 
             if not first_row:
                 track_count += 1
-                if simulate:
+                if dry_run:
                     print("Simulation: Processing row ({0}) "
                           "with track position ({1})".format(track_title,
                                                              track_position))
@@ -201,14 +182,14 @@ def main(argv):
                     'album': row['album'] if 'album' in row else album_name,
                     'year': row['year'] if 'year' in row else album_year
                 }
-                split_audio(track_data, audio_file, output_path, simulate)
+                split_audio(track_data, audio_file, output_path, dry_run)
 
             track_title = row['title']
             start_time = new_start_time
             first_row = False
 
     if not first_row:
-        if simulate:
+        if dry_run:
             print("Simulation: Processing row ({0}) "
                   "with track position ({1})".format(track_title,
                                                      track_position))
@@ -224,7 +205,7 @@ def main(argv):
             'year': row['year'] if 'year' in row else album_year
         }
 
-        split_audio(track_data, audio_file, output_path, simulate)
+        split_audio(track_data, audio_file, output_path, dry_run)
 
 
 if __name__ == "__main__":
