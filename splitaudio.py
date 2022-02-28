@@ -8,6 +8,13 @@ import csv
 from pydub import AudioSegment
 
 
+TIME_FORMATS = {1: {True: '%M:%S.%f', False: '%M:%S'},
+                2: {True: '%H:%M:%S.%f', False: '%H:%M:%S'}}
+
+AUDIO_OUT_CONVERSION = {
+    'm4a': 'mp3'
+}
+
 def split_audio(input_data: dict = [],
                 audio_file: AudioSegment = None,
                 output_path: str = None,
@@ -74,6 +81,20 @@ def split_audio(input_data: dict = [],
                                  tags=track_tags)
 
 
+def create_track_data(title, extension, track_pos, start_time, end_time,
+                      artist, album, year):
+    return {
+        'title': title,
+        'extension': extension,
+        'track': track_pos,
+        'start_time': start_time,
+        'end_time': end_time,
+        'artist': artist,
+        'album': album,
+        'year': year
+    }
+
+
 def main(argv):
     input_file = ''
     csv_file = ''
@@ -81,24 +102,27 @@ def main(argv):
     album_name = None
     album_year = None
     dry_run = False
-    time_formats = {1: {True: '%M:%S.%f', False: '%M:%S'},
-                    2: {True: '%H:%M:%S.%f', False: '%H:%M:%S'}}
 
     try:
-        parser = argparse.ArgumentParser(prog='splitaudio')
+        parser = argparse.ArgumentParser(prog='splitaudio.py')
         parser.add_argument('-i', '--input',
                             type=pathlib.Path,
-                            help='Audio file INPUT',
+                            help='Audio file to be split into tracks',
                             metavar='INPUT')
         parser.add_argument('-c', '--csv',
                             type=pathlib.Path,
-                            help='Delimited text file of track splits',
+                            help='CSV delimited text file containing the track '
+                                 'names and time position in the source '
+                                 'audio file',
                             metavar='CSV')
         parser.add_argument('-o', '--output',
                             type=pathlib.Path,
                             help='Output path where split tracks are to be'
                                  ' saved',
                             metavar='OUTPUT')
+        parser.add_argument('-r', '--artist',
+                            help='Music artist',
+                            metavar='ARTIST')
         parser.add_argument('-a', '--album',
                             help='Album title',
                             metavar='ALBUM')
@@ -118,6 +142,7 @@ def main(argv):
     csv_file = args.csv
     album_name = args.album
     album_year = args.year
+    album_artist = args.artist
     output_path = args.output
     dry_run = args.dryrun
 
@@ -145,6 +170,9 @@ def main(argv):
     audio_type = input_file.suffix[1:].lower()
     audio_file = AudioSegment.from_file(str(input_file), audio_type)
 
+    audio_out_type = AUDIO_OUT_CONVERSION[audio_type] \
+        if audio_type in AUDIO_OUT_CONVERSION else audio_type
+
     seconds = audio_file.duration_seconds
     file_duration = timedelta(seconds=seconds)
     print('- Duration:', file_duration)
@@ -153,7 +181,10 @@ def main(argv):
     start_time = ''
 
     with open(csv_file) as file:
-        reader = csv.DictReader(file)
+        dialect = csv.Sniffer().sniff(file.read(1024))
+        file.seek(0)
+
+        reader = csv.DictReader(file, dialect=dialect)
         first_row = True
         track_count = 0
 
@@ -162,7 +193,7 @@ def main(argv):
 
             sep_count = track_position.count(':')
             has_milliseconds = (track_position.count('.') > 0)
-            time_format = time_formats[sep_count][has_milliseconds]
+            time_format = TIME_FORMATS[sep_count][has_milliseconds]
             new_start_time = datetime.strptime(track_position, time_format)
 
             if not first_row:
@@ -173,15 +204,16 @@ def main(argv):
                                                              track_position))
 
                 end_time = new_start_time
-                track_data = {
-                    'title': track_title,
-                    'extension': audio_type,
-                    'track': track_count,
-                    'start_time': start_time,
-                    'end_time': end_time,
-                    'album': row['album'] if 'album' in row else album_name,
-                    'year': row['year'] if 'year' in row else album_year
-                }
+                track_data = create_track_data(
+                    track_title,
+                    audio_out_type,
+                    track_count,
+                    start_time,
+                    end_time,
+                    row['artist'] if 'artist' in row else album_artist,
+                    row['album'] if 'album' in row else album_name,
+                    row['year'] if 'year' in row else album_year
+                )
                 split_audio(track_data, audio_file, output_path, dry_run)
 
             track_title = row['title']
@@ -195,15 +227,16 @@ def main(argv):
                                                      track_position))
         end_time = datetime.strptime(str(file_duration), '%H:%M:%S.%f')
 
-        track_data = {
-            'title': track_title,
-            'extension': audio_type,
-            'track': (track_count+1),
-            'start_time': start_time,
-            'end_time': end_time,
-            'album': row['album'] if 'album' in row else album_name,
-            'year': row['year'] if 'year' in row else album_year
-        }
+        track_data = create_track_data(
+            track_title,
+            audio_out_type,
+            (track_count + 1),
+            start_time,
+            end_time,
+            row['artist'] if 'artist' in row else album_artist,
+            row['album'] if 'album' in row else album_name,
+            row['year'] if 'year' in row else album_year
+        )
 
         split_audio(track_data, audio_file, output_path, dry_run)
 
