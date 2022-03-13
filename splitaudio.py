@@ -6,6 +6,7 @@ import argparse
 from datetime import datetime, timedelta
 import csv
 from pydub import AudioSegment
+from mutagen.easyid3 import EasyID3
 
 
 TIME_FORMATS = {1: {True: '%M:%S.%f', False: '%M:%S'},
@@ -15,17 +16,21 @@ AUDIO_OUT_CONVERSION = {
     'm4a': 'mp3'
 }
 
+
 def split_audio(input_data: dict = [],
                 audio_file: AudioSegment = None,
                 output_path: str = None,
                 dry_run: bool = False):
     track_title = input_data['title']
     track_pos = input_data['track']
+    track_total = input_data['track_total']
     track_album = input_data['album'] if 'album' in input_data else None
+    track_artist = input_data['artist'] if 'artist' in input_data else None
     track_year = input_data['year'] if 'year' in input_data else None
     track_start_time = input_data['start_time']
     track_end_time = input_data['end_time']
     track_extension = input_data['extension']
+    # file_path = input_data['file_path']
 
     print('Title:', track_title)
     print('  Start:', datetime.strftime(track_start_time, '%H:%M:%S'))
@@ -69,24 +74,153 @@ def split_audio(input_data: dict = [],
 
         track_tags = {
             'title': track_title,
-            'track': track_pos,
+            'tracknumber': str(track_pos),
+            'discnumber': '1'
         }
         if track_album:
             track_tags['album'] = track_album
+        if track_artist:
+            track_tags['artist'] = track_artist
+            track_tags['albumartist'] = track_artist
         if track_year:
-            track_tags['year'] = track_year
+            track_tags['date'] = str(track_year)
 
         audio_track_final.export(out_f=output_file,
                                  format=track_extension,
                                  tags=track_tags)
 
+        set_id3_tag(
+            file_path=output_file,
+            artist=track_artist,
+            album=track_album,
+            year=track_year,
+            title=track_title,
+            disc_num=1,
+            total_disc_num=1,
+            track_num=track_pos,
+            total_track_num=track_total
+        )
 
-def create_track_data(title, extension, track_pos, start_time, end_time,
+
+def set_id3_tag(file_path, title=None, artist=None,
+                album=None, genre=None,
+                year=None,
+                track_num=None, total_track_num=None,
+                disc_num=None, total_disc_num=None):
+    """
+    Sets and save the ID3 Tags of a media file.
+
+    Complete list of available tags entries:
+
+    * album
+    * bpm
+    * compilation
+    * composer
+    * copyright
+    * encodedby
+    * lyricist
+    * length
+    * media
+    * mood
+    * title
+    * version
+    * artist
+    * albumartist
+    * conductor
+    * arranger
+    * discnumber
+    * organization
+    * tracknumber
+    * author
+    * albumartistsort
+    * albumsort
+    * composersort
+    * artistsort
+    * titlesort
+    * isrc
+    * discsubtitle
+    * language
+    * genre
+    * date
+    * originaldate
+    * performer:*
+    * musicbrainz_trackid
+    * website
+    * replaygain_*_gain
+    * replaygain_*_peak
+    * musicbrainz_artistid
+    * musicbrainz_albumid
+    * musicbrainz_albumartistid
+    * musicbrainz_trmid
+    * musicip_puid
+    * musicip_fingerprint
+    * musicbrainz_albumstatus
+    * musicbrainz_albumtype
+    * releasecountry
+    * musicbrainz_discid
+    * asin
+    * performer
+    * barcode
+    * catalognumber
+    * musicbrainz_releasetrackid
+    * musicbrainz_releasegroupid
+    * musicbrainz_workid
+    * acoustid_fingerprint
+    * acoustid_id
+
+    :param file_path: location of media file
+    :param title: The `title` to apply
+    :param artist: The `artist` to apply
+    :param album: The `album` to apply
+    :param genre: The `genre` to apply
+    :param year: The year to apply to the `date`
+    :param track_num: The track number
+    :param total_track_num: The total number of tracks
+    :param disc_num: The disc number
+    :param total_disc_num: The total number discs
+    """
+    tags = EasyID3(file_path)
+
+    if title:
+        tags['title'] = title
+    if artist:
+        tags['artist'] = artist
+        tags['albumartist'] = artist
+    if album:
+        tags['album'] = album
+    if genre:
+        tags['genre'] = genre
+    if year:
+        tags['date'] = str(year)
+    if total_track_num:
+        if track_num:
+            tags['tracknumber'] = '{}/{}'.format(track_num, total_track_num)
+        else:
+            tags['tracknumber'] = '/{}'.format(total_track_num)
+    else:
+        if track_num:
+            tags['tracknumber'] = '{}'.format(track_num)
+    if total_disc_num:
+        if disc_num:
+            tags['discnumber'] = '{}/{}'.format(disc_num, total_disc_num)
+        else:
+            tags['discnumber'] = '/{}'.format(total_disc_num)
+    else:
+        if disc_num:
+            tags['discnumber'] = '{}'.format(disc_num)
+
+    tags.save()
+
+
+def create_track_data(title, extension,
+                      track_pos, track_total,
+                      start_time, end_time,
                       artist, album, year):
     return {
         'title': title,
         'extension': extension,
         'track': track_pos,
+        'track_total': track_total,
         'start_time': start_time,
         'end_time': end_time,
         'artist': artist,
@@ -146,7 +280,6 @@ def main(argv):
     output_path = args.output
     dry_run = args.dryrun
 
-
     if str(input_file).startswith('~'):
         input_file = pathlib.Path('{0}{1}'.format(input_file.home(),
                                                   str(input_file)[1:]))
@@ -179,8 +312,15 @@ def main(argv):
     print()
 
     start_time = ''
+    total_tracks = -1
 
     with open(csv_file) as file:
+        lines = file.readlines()
+        for line in lines:
+            total_tracks = (total_tracks + 1) \
+                if not line.isspace() else total_tracks
+        file.seek(0)
+
         dialect = csv.Sniffer().sniff(file.read(1024))
         file.seek(0)
 
@@ -208,6 +348,7 @@ def main(argv):
                     track_title,
                     audio_out_type,
                     track_count,
+                    total_tracks,
                     start_time,
                     end_time,
                     row['artist'] if 'artist' in row else album_artist,
@@ -231,6 +372,7 @@ def main(argv):
             track_title,
             audio_out_type,
             (track_count + 1),
+            total_tracks,
             start_time,
             end_time,
             row['artist'] if 'artist' in row else album_artist,

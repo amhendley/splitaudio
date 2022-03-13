@@ -1,4 +1,12 @@
 [[package]]
+name = "mutagen"
+version = "1.45.1"
+description = "read and write audio tags for many formats"
+category = "main"
+optional = false
+python-versions = ">=3.5, <4"
+
+[[package]]
 name = "pydub"
 version = "0.25.1"
 description = "Manipulate audio with an simple and easy high level interface"
@@ -9,9 +17,13 @@ python-versions = "*"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.10"
-content-hash = "28ce06113e85d8f476b035bf13647eb5c4b0c6be6685f16aef4405366e305cec"
+content-hash = "9c6a1285116eeb58058d781dac6ebd65b5e687ad17ed7d8f0747937af57e922d"
 
 [metadata.files]
+mutagen = [
+    {file = "mutagen-1.45.1-py3-none-any.whl", hash = "sha256:9c9f243fcec7f410f138cb12c21c84c64fde4195481a30c9bfb05b5f003adfed"},
+    {file = "mutagen-1.45.1.tar.gz", hash = "sha256:6397602efb3c2d7baebd2166ed85731ae1c1d475abca22090b7141ff5034b3e1"},
+]
 pydub = [
     {file = "pydub-0.25.1-py2.py3-none-any.whl", hash = "sha256:65617e33033874b59d87db603aa1ed450633288aefead953b30bded59cb599a6"},
     {file = "pydub-0.25.1.tar.gz", hash = "sha256:980a33ce9949cab2a569606b65674d748ecbca4f0796887fd6f46173a7b0d30f"},
